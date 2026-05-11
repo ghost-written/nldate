@@ -71,7 +71,11 @@ def parse(s: str, today: date | None = None) -> date:
 
 def _normalize(s: str) -> str:
     text = s.strip().lower()
-    text = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", text)
+    text = text.rstrip(".!?;:")                      # trailing punctuation
+    text = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", text)  # 1st -> 1
+    text = re.sub(r"([a-z])\.", r"\1", text)         # Dec. -> Dec
+    text = re.sub(r"^the\s+", "", text)              # leading "the "
+    text = re.sub(r"\bof\s+", "", text)              # "1 of December" -> "1 December"
     text = text.replace(",", " ")
     return re.sub(r"\s+", " ", text).strip()
 
@@ -83,6 +87,10 @@ def _parse(text: str, today: date) -> date | None:
         return today + timedelta(days=1)
     if text == "yesterday":
         return today - timedelta(days=1)
+    if text == "day before yesterday":
+        return today - timedelta(days=2)
+    if text == "day after tomorrow":
+        return today + timedelta(days=2)
 
     # Year-first: 2025-12-01, 2025/12/01, 2025.12.01
     m = re.fullmatch(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", text)
