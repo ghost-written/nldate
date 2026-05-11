@@ -5,23 +5,57 @@ import re
 from datetime import date, timedelta
 
 WEEKDAYS: dict[str, int] = {
-    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-    "friday": 4, "saturday": 5, "sunday": 6,
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
 }
 
 MONTHS: dict[str, int] = {
-    "january": 1, "jan": 1, "february": 2, "feb": 2,
-    "march": 3, "mar": 3, "april": 4, "apr": 4, "may": 5,
-    "june": 6, "jun": 6, "july": 7, "jul": 7,
-    "august": 8, "aug": 8, "september": 9, "sep": 9, "sept": 9,
-    "october": 10, "oct": 10, "november": 11, "nov": 11,
-    "december": 12, "dec": 12,
+    "january": 1,
+    "jan": 1,
+    "february": 2,
+    "feb": 2,
+    "march": 3,
+    "mar": 3,
+    "april": 4,
+    "apr": 4,
+    "may": 5,
+    "june": 6,
+    "jun": 6,
+    "july": 7,
+    "jul": 7,
+    "august": 8,
+    "aug": 8,
+    "september": 9,
+    "sep": 9,
+    "sept": 9,
+    "october": 10,
+    "oct": 10,
+    "november": 11,
+    "nov": 11,
+    "december": 12,
+    "dec": 12,
 }
 
 NUMBER_WORDS: dict[str, int] = {
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-    "eleven": 11, "twelve": 12, "a": 1, "an": 1,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "a": 1,
+    "an": 1,
 }
 
 
@@ -37,7 +71,7 @@ def parse(s: str, today: date | None = None) -> date:
 
 def _normalize(s: str) -> str:
     text = s.strip().lower()
-    text = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", text)  # 1st -> 1
+    text = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", text)
     text = text.replace(",", " ")
     return re.sub(r"\s+", " ", text).strip()
 
@@ -50,13 +84,13 @@ def _parse(text: str, today: date) -> date | None:
     if text == "yesterday":
         return today - timedelta(days=1)
 
-    # ISO: 2025-12-01
-    m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", text)
+    # Year-first: 2025-12-01, 2025/12/01, 2025.12.01
+    m = re.fullmatch(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", text)
     if m:
         return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
-    # US slash: 12/1/2025  or  12/1/25
-    m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{2,4})", text)
+    # US: 12-1-2025, 12/1/2025, 12.1.2025 (year last, 2-or-4 digit year)
+    m = re.fullmatch(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})", text)
     if m:
         month, day, year = int(m.group(1)), int(m.group(2)), int(m.group(3))
         if year < 100:
@@ -158,4 +192,3 @@ def _shift_months(d: date, n: int) -> date:
     month = month_idx % 12 + 1
     last_day = calendar.monthrange(year, month)[1]
     return date(year, month, min(d.day, last_day))
-
