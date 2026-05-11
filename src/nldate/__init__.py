@@ -71,11 +71,11 @@ def parse(s: str, today: date | None = None) -> date:
 
 def _normalize(s: str) -> str:
     text = s.strip().lower()
-    text = text.rstrip(".!?;:")                      # trailing punctuation
+    text = text.rstrip(".!?;:")  # trailing punctuation
     text = re.sub(r"(\d+)(st|nd|rd|th)\b", r"\1", text)  # 1st -> 1
-    text = re.sub(r"([a-z])\.", r"\1", text)         # Dec. -> Dec
-    text = re.sub(r"^the\s+", "", text)              # leading "the "
-    text = re.sub(r"\bof\s+", "", text)              # "1 of December" -> "1 December"
+    text = re.sub(r"([a-z])\.", r"\1", text)  # Dec. -> Dec
+    text = re.sub(r"^the\s+", "", text)  # leading "the "
+    text = re.sub(r"\bof\s+", "", text)  # "1 of December" -> "1 December"
     text = text.replace(",", " ")
     return re.sub(r"\s+", " ", text).strip()
 
@@ -105,37 +105,36 @@ def _parse(text: str, today: date) -> date | None:
             year += 2000
         return date(year, month, day)
 
-    # "N <unit>s before/after/from X"
-    m = re.fullmatch(
-        r"(\w+)\s+(day|week|month|year)s?\s+(before|after|from)\s+(.+)",
-        text,
-    )
+    # Compound offset: "N <unit>s [, N <unit>s ...] before/after/from X"
+    m = re.fullmatch(r"(.+?)\s+(before|after|from)\s+(.+)", text)
     if m:
-        n = _to_int(m.group(1))
-        if n is None:
-            return None
-        unit, direction, rest = m.group(2), m.group(3), m.group(4)
-        base = today if rest in ("now", "today") else _parse(rest, today)
-        if base is None:
-            return None
-        sign = -1 if direction == "before" else 1
-        return _shift(base, sign * n, unit)
+        offsets = _parse_offsets(m.group(1))
+        if offsets is not None:
+            rest = m.group(3)
+            base = today if rest in ("now", "today") else _parse(rest, today)
+            if base is not None:
+                sign = -1 if m.group(2) == "before" else 1
+                for n, unit in offsets:
+                    base = _shift(base, sign * n, unit)
+                return base
 
-    # "in N <unit>s"
-    m = re.fullmatch(r"in\s+(\w+)\s+(day|week|month|year)s?", text)
-    if m:
-        n = _to_int(m.group(1))
-        if n is None:
-            return None
-        return _shift(today, n, m.group(2))
+    # "in N <unit>s [N <unit>s ...]"
+    if text.startswith("in "):
+        offsets = _parse_offsets(text[3:])
+        if offsets is not None:
+            base = today
+            for n, unit in offsets:
+                base = _shift(base, n, unit)
+            return base
 
-    # "N <unit>s ago"
-    m = re.fullmatch(r"(\w+)\s+(day|week|month|year)s?\s+ago", text)
-    if m:
-        n = _to_int(m.group(1))
-        if n is None:
-            return None
-        return _shift(today, -n, m.group(2))
+    # "N <unit>s [N <unit>s ...] ago"
+    if text.endswith(" ago"):
+        offsets = _parse_offsets(text[:-4])
+        if offsets is not None:
+            base = today
+            for n, unit in offsets:
+                base = _shift(base, -n, unit)
+            return base
 
     # "next/last/this <weekday>"
     m = re.fullmatch(r"(next|last|this)\s+(\w+)", text)
@@ -180,6 +179,22 @@ def _to_int(s: str) -> int | None:
     if s.isdigit():
         return int(s)
     return NUMBER_WORDS.get(s)
+
+
+def _parse_offsets(s: str) -> list[tuple[int, str]] | None:
+    s = s.replace(",", " ")
+    s = re.sub(r"\band\b", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    pattern = r"(\w+\s+(?:day|week|month|year)s?)(\s+\w+\s+(?:day|week|month|year)s?)*"
+    if not s or not re.fullmatch(pattern, s):
+        return None
+    result: list[tuple[int, str]] = []
+    for n_str, unit in re.findall(r"(\w+)\s+(day|week|month|year)s?", s):
+        n = _to_int(n_str)
+        if n is None:
+            return None
+        result.append((n, unit))
+    return result
 
 
 def _shift(d: date, n: int, unit: str) -> date:
